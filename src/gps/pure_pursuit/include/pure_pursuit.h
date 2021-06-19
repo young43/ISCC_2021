@@ -50,8 +50,8 @@ public:
 
 // private:
   // variables
-  int next_waypoint_number_;
-  int current_idx;
+  int next_waypoint_number_;  // 현재위치+LD 와 가장 가까운 waypoint
+  int current_idx;            // 현재위치에서 가장 가까운 waypoint
 
   geometry_msgs::Point next_target_position_;
   geometry_msgs::Point current_position;
@@ -72,7 +72,7 @@ public:
 
   std::vector<Obstacle> obstacles;
 
-  
+
 
 
 

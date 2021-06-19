@@ -35,15 +35,19 @@ void PurePursuit::getNextWaypoint()
   bool current_idx_flag = false;
   // if waypoints are not given, do nothing.
   // std::cout << path_size << std::endl;
+
+  // exception 처리
   if (path_size == 0)
   {
     next_waypoint_number_ = -1;
     return;
   }
+
+  // 초기화 과정
   if (next_waypoint_number_ == -1) {
-    float min_distance = 9999999;
+    double min_distance = 9999999;
     for (int i = 0; i < path_size; i++) {
-      float current_distance = getPlaneDistance(waypoints.at(i).first, current_pose_.position);
+      double current_distance = getPlaneDistance(waypoints.at(i).first, current_pose_.position);
       if (min_distance > current_distance) {
         min_distance = current_distance;
         next_waypoint_number_ = i;
@@ -71,9 +75,9 @@ void PurePursuit::getNextWaypoint()
 
     if (getPlaneDistance(waypoints.at(i).first, current_pose_.position) > 4) {
       int path_size2 = static_cast<int>(waypoints.size());
-      float min_distance2 = 9999999;
+      double min_distance2 = 9999999;
       for (int j = 0; j < path_size2; j++) {
-        float current_distance2 = getPlaneDistance(waypoints.at(j).first, current_pose_.position);
+        double current_distance2 = getPlaneDistance(waypoints.at(j).first, current_pose_.position);
         if (min_distance2 > current_distance2) {
           min_distance2 = current_distance2;
           current_idx = j;
@@ -148,9 +152,9 @@ bool PurePursuit::reachMissionIdx(int misson_idx) {
 // calculation relative coordinate of point from current_pose frame
 geometry_msgs::Point calcRelativeCoordinate(geometry_msgs::Point point_msg, geometry_msgs::Pose current_pose)
 {
-  tf::Transform inverse;
-  tf::poseMsgToTF(current_pose, inverse);
-  tf::Transform transform = inverse.inverse();
+  tf::Transform posTF;
+  tf::poseMsgToTF(current_pose, posTF);
+  tf::Transform transform = posTF.inverse();
 
   tf::Point p;
   pointMsgToTF(point_msg, p);

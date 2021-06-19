@@ -62,9 +62,11 @@ const int cw_idx_3 = 2755;
 void PurePursuitNode::initForROS()
 {
   // ros parameter settings
-  private_nh_.param("const_lookahead_distance", const_lookahead_distance_, 4.0);
-  private_nh_.param("const_velocity", const_velocity_, 3.0);
-  private_nh_.param("final_constant", final_constant, 1.5);
+  // ld, vel, constant는 생성자, launch 파일에서 전달해주므로 주석처리함.
+  // private_nh_.param("const_lookahead_distance", const_lookahead_distance_, 4.0);
+  // private_nh_.param("const_velocity", const_velocity_, 3.0);
+  // private_nh_.param("final_constant", final_constant, 1.5);
+
   nh_.param("vehicle_info/wheel_base", wheel_base_, 1.04);
 
   ROS_HOME = ros::package::getPath("pure_pursuit");
@@ -116,7 +118,7 @@ void PurePursuitNode::run(char** argv) {
       continue;
     }
 
-    pp_.setLookaheadDistance(computeLookaheadDistance());
+    pp_.setLookaheadDistance(getLookaheadDistance());
 
     double kappa = 0;
     bool can_get_curvature = pp_.canGetCurvature(&kappa);
@@ -132,6 +134,10 @@ void PurePursuitNode::run(char** argv) {
 
     geometry_msgs::Point green_point = pp_.waypoints.at(pp_.current_idx).first;
     geometry_msgs::Point pink_point = pp_.waypoints.at(pp_.next_waypoint_number_).first;
+
+    // http://www.littlecandle.co.kr/bbs/board.php?bo_table=codingnote&wr_id=174&page=2
+    // 쿼터니언 -> 오일러 변환 공식
+    // 원래는 roll 변환 공식인데, yaw값으로 한 이유는 좌표계 이상으로 추정됨.
     double yaw = atan2(2.0 * (pp_.current_pose_.orientation.w * pp_.current_pose_.orientation.z + pp_.current_pose_.orientation.x * pp_.current_pose_.orientation.y), 1.0 - 2.0 * (pp_.current_pose_.orientation.y * pp_.current_pose_.orientation.y + pp_.current_pose_.orientation.z * pp_.current_pose_.orientation.z));
     double map_yaw = atan2(pink_point.y - green_point.y, pink_point.x - green_point.x);
     double diff_yaw = fabs(yaw - map_yaw);
@@ -215,7 +221,7 @@ void PurePursuitNode::run(char** argv) {
         // 10초 멈춤
         for (int i = 0; i < 120; i++)
         {
-          pulishControlMsg(0, 0);
+          publishControlMsg(0, 0);
           // 0.1초
           usleep(100000);
         }
@@ -223,12 +229,12 @@ void PurePursuitNode::run(char** argv) {
         /////////////////////////////////////////////////////////////////////////////////
         // 특정 지점까지는 그냥 후진
         while (!pp_.reachMissionIdx(end_parking_backward_idx)) {
-          pulishControlMsg(backward_speed, 0);
+          publishControlMsg(backward_speed, 0);
           ros::spinOnce();
         }
         // 그 다음 지점까지는 풀조향 후진
         while (!pp_.reachMissionIdx(end_parking_full_steer_backward_idx)) {
-          pulishControlMsg(backward_speed, 30);
+          publishControlMsg(backward_speed, 30);
           ros::spinOnce();
         }
         pp_.mission_flag = 2;
@@ -236,7 +242,7 @@ void PurePursuitNode::run(char** argv) {
       // 주차 빠져나오고 다시 global path로
       if (pp_.mission_flag == 2) {
         for (int i = 0; i < 30; i++) {
-          pulishControlMsg(0, 0);
+          publishControlMsg(0, 0);
           // 0.1초
           usleep(100000);
         }
@@ -271,44 +277,44 @@ void PurePursuitNode::run(char** argv) {
       {
         ROS_INFO_STREAM("Detect First Obstacle & Change Flag to 1");
         pp_.static_obstacle_flag = 1;
-        //pulishControlMsg(3, tmp_yaw_rate);
-        pulishControlMsg(3, 20);
+        //publishControlMsg(3, tmp_yaw_rate);
+        publishControlMsg(3, 20);
       }
       else if(pp_.static_obstacle_flag == 1 && left_detected && tmp_yaw_rate > 5 && tmp_yaw_rate < 45)
       {
         ROS_INFO_STREAM("Avoid Left Obstacle");
-        //pulishControlMsg(3, tmp_yaw_rate);
-        pulishControlMsg(3, 20);
+        //publishControlMsg(3, tmp_yaw_rate);
+        publishControlMsg(3, 20);
       }
       else if(pp_.static_obstacle_flag == 1 && !left_detected && !left_avoid)
       {
         ROS_INFO_STREAM("Pass the First Obstacle & Change Flag to 2");
         left_avoid = true;
         pp_.static_obstacle_flag = 2;
-        pulishControlMsg(3,-3);
+        publishControlMsg(3,-3);
       }
       else if(pp_.static_obstacle_flag == 2 && left_avoid && left_detected && tmp_yaw_rate >= 0 && tmp_yaw_rate < 45)
       {
         ROS_INFO_STREAM("Pass First Obstacle & Yaw to Straight");
-        pulishControlMsg(3, -20);
+        publishControlMsg(3, -20);
       }
       else if(pp_.static_obstacle_flag == 2 && left_avoid && right_detected && tmp_yaw_rate < 0 && tmp_yaw_rate > -60)
       {
         ROS_INFO_STREAM("Change Flag to 3");
         pp_.static_obstacle_flag = 3;
-        pulishControlMsg(3, -24);
+        publishControlMsg(3, -24);
       }
       else if(pp_.static_obstacle_flag == 3 && left_avoid && right_detected && tmp_yaw_rate < -5 && tmp_yaw_rate > -60)
       {
         ROS_INFO_STREAM("Avoid Right Obstacle");
         //publish(3, tmp_yaw_rate);
-        pulishControlMsg(3, -24);
+        publishControlMsg(3, -24);
       }
       else if(pp_.static_obstacle_flag == 3 && left_avoid && !right_detected)
       {
         ROS_INFO_STREAM("Finish the Static Obstacle 1");
         pp_.static_obstacle_flag = 4;
-        pulishControlMsg(3,0);
+        publishControlMsg(3,0);
       }
 
       if(pp_.static_obstacle_flag > 0 && pp_.static_obstacle_flag < 4)
@@ -325,44 +331,44 @@ void PurePursuitNode::run(char** argv) {
       //   {
       //     ROS_INFO_STREAM("Detect First Obstacle & Change Flag to 1");
       //     pp_.static_obstacle_flag = 1;
-      //     //pulishControlMsg(3, tmp_yaw_rate);
-      //     pulishControlMsg(3, -20);
+      //     //publishControlMsg(3, tmp_yaw_rate);
+      //     publishControlMsg(3, -20);
       //   }
       //   else if(pp_.static_obstacle_flag == 1 && right_detected && tmp_yaw_rate < -5 && tmp_yaw_rate > -45)
       //   {
       //     ROS_INFO_STREAM("Avoid Right Obstacle");
-      //     //pulishControlMsg(3, tmp_yaw_rate);
-      //     pulishControlMsg(3, -20);
+      //     //publishControlMsg(3, tmp_yaw_rate);
+      //     publishControlMsg(3, -20);
       //   }
       //   else if(pp_.static_obstacle_flag == 1 && !right_detected && !right_avoid)
       //   {
       //     ROS_INFO_STREAM("Pass the First Obstacle & Change Flag to 2");
       //     right_avoid = true;
       //     pp_.static_obstacle_flag = 2;
-      //     pulishControlMsg(3,5);
+      //     publishControlMsg(3,5);
       //   }
       //   else if(pp_.static_obstacle_flag == 2 && right_avoid && right_detected && tmp_yaw_rate < 0 && tmp_yaw_rate > -45)
       //   {
       //     ROS_INFO_STREAM("Pass First Obstacle & Yaw to Straight");
-      //     pulishControlMsg(3, 20);
+      //     publishControlMsg(3, 20);
       //   }
       //   else if(pp_.static_obstacle_flag == 2 && right_avoid && left_detected && tmp_yaw_rate >= 0 && tmp_yaw_rate < 50)
       //   {
       //     ROS_INFO_STREAM("Change Flag to 3");
       //     pp_.static_obstacle_flag = 3;
-      //     pulishControlMsg(3, 24);
+      //     publishControlMsg(3, 24);
       //   }
       //   else if(pp_.static_obstacle_flag == 3 && right_avoid && left_detected && tmp_yaw_rate > 5 && tmp_yaw_rate < 50)
       //   {
       //     ROS_INFO_STREAM("Avoid Right Obstacle");
       //     //publish(3, tmp_yaw_rate);
-      //     pulishControlMsg(3, 24);
+      //     publishControlMsg(3, 24);
       //   }
       //   else if(pp_.static_obstacle_flag == 3 && right_avoid && !left_detected)
       //   {
       //     ROS_INFO_STREAM("Finish the Static Obstacle 1");
       //     pp_.static_obstacle_flag = 4;
-      //     pulishControlMsg(3,0);
+      //     publishControlMsg(3,0);
       //
       //     const_lookahead_distance_ = 4;
       //     const_velocity_ = 4;
@@ -384,7 +390,7 @@ void PurePursuitNode::run(char** argv) {
         if (pp_.reachMissionIdx(cw_idx_1) && pp_.mission_flag == 0) {
           for (int i = 0; i < 50; i++)
           {
-            pulishControlMsg(0, 0);
+            publishControlMsg(0, 0);
             // 0.1초
             usleep(100000);
           }
@@ -410,7 +416,7 @@ void PurePursuitNode::run(char** argv) {
 
         // 첫 신호등 인덱스 : tf_idx_1
         if(pp_.reachMissionIdx(tf_idx_1) && !pp_.straight_go_flag) {
-          pulishControlMsg(0,0);
+          publishControlMsg(0,0);
           continue;
         }
       }
@@ -431,7 +437,7 @@ void PurePursuitNode::run(char** argv) {
 
         // 두번째 신호등 인덱스 : tf_idx_2
         if(pp_.reachMissionIdx(tf_idx_2) && !pp_.left_go_flag) {
-          pulishControlMsg(0,0);
+          publishControlMsg(0,0);
           continue;
         }
       }
@@ -453,7 +459,7 @@ void PurePursuitNode::run(char** argv) {
         {
           while(pp_.is_obstacle_detected) {
 
-            pulishControlMsg(0, 0);
+            publishControlMsg(0, 0);
 
             std::cout << pp_.is_obstacle_detected << std::endl;
             // 1초
@@ -474,7 +480,7 @@ void PurePursuitNode::run(char** argv) {
         if (pp_.reachMissionIdx(cw_idx_2) && pp_.mission_flag == 0) {
           for (int i = 0; i < 50; i++)
           {
-            pulishControlMsg(0, 0);
+            publishControlMsg(0, 0);
             // 0.1초
             usleep(100000);
           }
@@ -507,18 +513,18 @@ void PurePursuitNode::run(char** argv) {
         const_velocity_ = 3;
         pp_.mission_flag = 1;
         obs_start = std::chrono::system_clock::now();
-        pulishControlMsg(3, 24);
+        publishControlMsg(3, 24);
         continue;
       }
       else if (pp_.mission_flag == 1 && pp_.is_obstacle_detected) {
         //pp_.mission_flag = 2;
-        pulishControlMsg(3, 24);
+        publishControlMsg(3, 24);
         continue;
       }
       else if (pp_.mission_flag == 1 && !pp_.is_obstacle_detected) {
         pp_.setWaypoints(avoidance_path);
         pp_.mission_flag = 2;
-        //pulishControlMsg(0, 0);
+        //publishControlMsg(0, 0);
 
         // for test
         const_lookahead_distance_ = 4;
@@ -526,17 +532,17 @@ void PurePursuitNode::run(char** argv) {
         final_constant = 2.0;
 
         continue;
-        //pulishControlMsg(3, 15);
+        //publishControlMsg(3, 15);
       }
       // avoid path original time 4.0
       else if (pp_.mission_flag == 2 && pp_.is_obstacle_detected && (std::chrono::duration<double>(std::chrono::system_clock::now() - obs_start)).count() > 4.0) {
         pp_.mission_flag = 3;
-        pulishControlMsg(3, -28);
+        publishControlMsg(3, -28);
         continue;
       }
       else if(pp_.mission_flag == 3 && pp_.is_obstacle_detected)
       {
-        pulishControlMsg(3, -28);
+        publishControlMsg(3, -28);
         continue;
       }
       //  && (std::chrono::duration<double>(std::chrono::system_clock::now() - obs_start)).count() > 10.0
@@ -559,7 +565,7 @@ void PurePursuitNode::run(char** argv) {
 
       // 세번째 신호등 인덱스 : tf_idx_3, temp comment
       if(pp_.mission_flag == 4 && pp_.reachMissionIdx(tf_idx_3) && !pp_.straight_go_flag) {
-        pulishControlMsg(0,0);
+        publishControlMsg(0,0);
         continue;
       }
     }
@@ -580,7 +586,7 @@ void PurePursuitNode::run(char** argv) {
       if (pp_.reachMissionIdx(cw_idx_3) && pp_.mission_flag == 0) {
         for (int i = 0; i < 50; i++)
         {
-          pulishControlMsg(0, 0);
+          publishControlMsg(0, 0);
           // 0.1초
           usleep(100000);
         }
@@ -615,7 +621,7 @@ void PurePursuitNode::run(char** argv) {
 
       // 네번째 신호등 인덱스 : tf_idx_4
       if(pp_.reachMissionIdx(tf_idx_4) && !pp_.left_go_flag) {
-        pulishControlMsg(0,0);
+        publishControlMsg(0,0);
         continue;
       }
     }
@@ -635,7 +641,7 @@ void PurePursuitNode::run(char** argv) {
 
       // 다섯번째 신호등 인덱스 : tf_idx_5
       if(pp_.reachMissionIdx(tf_idx_5) && !pp_.left_go_flag) {
-        pulishControlMsg(0,0);
+        publishControlMsg(0,0);
         continue;
       }
 
@@ -719,7 +725,7 @@ void PurePursuitNode::run(char** argv) {
       const_velocity_ = 5;
       // 여섯번째 신호등 인덱스 : tf_idx_6
       if(pp_.reachMissionIdx(tf_idx_6) && !pp_.straight_go_flag) {
-        pulishControlMsg(0,0);
+        publishControlMsg(0,0);
         continue;
       }
     }
@@ -750,7 +756,7 @@ void PurePursuitNode::run(char** argv) {
 
       // 일곱번신호등 인덱스 : tf_idx_7
       if(pp_.reachMissionIdx(tf_idx_7) && !pp_.straight_go_flag) {
-        pulishControlMsg(0,0);
+        publishControlMsg(0,0);
         continue;
       }
     }
@@ -806,19 +812,14 @@ void PurePursuitNode::publishPurePursuitDriveMsg(const bool& can_get_curvature, 
   double steering_ = can_get_curvature ? (steering_radian * 180.0 / M_PI) * -1 * final_constant: 0;
 
   // std::cout << "steering : " << steering_ << "\tkappa : " << kappa <<std::endl;
-  pulishControlMsg(throttle_, steering_);
+  publishControlMsg(throttle_, steering_);
 
   // for steering visualization
   publishSteeringVisualizationMsg(steering_radian);
 }
 
-double PurePursuitNode::computeLookaheadDistance() const {
-  if (true) {
-    return const_lookahead_distance_;
-  }
-}
 
-void PurePursuitNode::pulishControlMsg(double throttle, double steering) const
+void PurePursuitNode::publishControlMsg(double throttle, double steering) const
 {
   race::drive_values drive_msg;
   drive_msg.throttle = throttle;

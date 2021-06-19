@@ -76,8 +76,6 @@ private:
 
   // callbacks
   void callbackFromCurrentPose(const geometry_msgs::PoseStampedConstPtr& msg);
-  //void callbackFromCurrentVelocity(
-  //  const geometry_msgs::TwistStampedConstPtr& msg);
 
   // for main control
   void callbackFromObstacle(const avoid_obstacle::TrueObstacles& msg);
@@ -85,20 +83,20 @@ private:
   void callbackFromObstacle_8M(const avoid_obstacle::TrueObstacles& msg);
   void callbackFromTrafficLight(const darknet_ros_msgs::BoundingBoxes& msg);
   // void callbackFromLane(const {msg_type}& msg);
-
-
+  
   // initializer
   void initForROS();
 
   // functions
   void publishPurePursuitDriveMsg(const bool& can_get_curvature, const double& kappa) const;
-  void pulishControlMsg(double throttle, double steering) const;
+  void publishControlMsg(double throttle, double steering) const;
 
   void publishTargetPointVisualizationMsg ();
   void publishCurrentPointVisualizationMsg ();
   void publishSteeringVisualizationMsg (const double& steering_radian) const;
 
-  double computeLookaheadDistance() const;
+  // double computeLookaheadDistance() const { return const_lookahead_distance_; }
+  double getLookaheadDistance() const { return const_lookahead_distance_; }
 
   // set wayPath
   void setPath(char** argv);
