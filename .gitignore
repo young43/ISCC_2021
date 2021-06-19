@@ -1,0 +1,24 @@
+/devel
+/build
+
+# model file
+src/race/src/result
+src/lane_detect/result
+
+# test movies
+*.avi
+*.mov
+*.mkv
+*.pyc
+*.mp4
+*.bag
+
+# test image
+*.jpg
+*.png
+
+src/CMakeLists.txt
+
+.vscode/
+./src/vscode/
+src/gps/.vscode/
